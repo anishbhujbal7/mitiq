@@ -1,6 +1,7 @@
-"""Block-PEC implementation for Pauli-Z error aggregation via dynamic programming."""
+"""Block-PEC implementation for Pauli-Z error aggregation via dynamic
+programming."""
 
-from typing import Any, Callable, Dict, Sequence, List, Union, cast
+from typing import Any, Callable, Dict, List, Sequence, Union, cast
 
 import cirq
 import numpy as np
@@ -9,7 +10,6 @@ from numpy.typing import NDArray
 from mitiq.pec.sampling import sample_sequence
 from mitiq.pec.types import NoisyOperation, OperationRepresentation
 
-
 Z_COMPATIBLE_GATES = (
     cirq.ZPowGate,
     cirq.CZPowGate,
@@ -17,7 +17,9 @@ Z_COMPATIBLE_GATES = (
 )
 
 
-def _unitary_on_qubits(circuit: cirq.Circuit, qubit_order: Sequence[cirq.Qid]) -> NDArray[Any]:
+def _unitary_on_qubits(
+    circuit: cirq.Circuit, qubit_order: Sequence[cirq.Qid]
+) -> NDArray[Any]:
     """Returns a circuit unitary using the supplied qubit ordering."""
     return circuit.unitary(qubits_that_should_be_present=qubit_order)
 
@@ -54,7 +56,9 @@ def extract_z_mask_from_circuit(
     phase_factor = diag[0]
 
     if not np.isclose(abs(phase_factor), 1.0, atol=1e-5):
-        raise ValueError("Error unitary is not unitary up to numerical tolerance.")
+        raise ValueError(
+            "Error unitary is not unitary up to numerical tolerance."
+        )
 
     normalized_diag = diag / phase_factor
 
@@ -62,7 +66,8 @@ def extract_z_mask_from_circuit(
         raise ValueError("Error unitary is not a Pauli-Z string.")
 
     # A Pauli-Z string has only +/- 1 on its diagonal after removing global
-    # phase. Determine each Z bit from the basis state with only that qubit set.
+    # phase. Determine each Z bit from the basis state with only that
+    # qubit set.
     num_qubits = len(qubit_order)
     mask = 0
 
@@ -75,7 +80,8 @@ def extract_z_mask_from_circuit(
             mask |= bit
         elif not np.isclose(value, 1.0, atol=1e-5):
             raise ValueError(
-                f"Non-Pauli-Z error encountered on qubit {qubit}: entry = {value}"
+                f"Non-Pauli-Z error encountered on qubit {qubit}: "
+                f"entry = {value}"
             )
 
     # Validate the complete diagonal. This catches diagonal phase patterns
@@ -124,7 +130,9 @@ def propagate_z_mask_through_op(
         control_position = qubit_order.index(control_q)
         target_position = qubit_order.index(target_q)
     except ValueError as exc:
-        raise ValueError("Operation contains a qubit outside qubit_order.") from exc
+        raise ValueError(
+            "Operation contains a qubit outside qubit_order."
+        ) from exc
 
     control_bit = 1 << (n_qubits - 1 - control_position)
     target_bit = 1 << (n_qubits - 1 - target_position)
@@ -145,14 +153,15 @@ def aggregate_z_error_bitmasks(
 ) -> dict[int, float]:
     """Aggregate two Z-error distributions using propagated XOR convolution.
 
-    ``dist1`` contains accumulated errors from earlier layers. Before combining
-    them with ``dist2``, those errors are propagated through the next ideal
-    operation when ``propagation_op`` is supplied. Multiplication of Pauli-Z
-    strings is represented by XOR of their bitmasks.
+    ``dist1`` contains accumulated errors from earlier layers. Before
+    combining them with ``dist2``, those errors are propagated through the
+    next ideal operation when ``propagation_op`` is supplied.
+    Multiplication of Pauli-Z strings is represented by XOR of their bitmasks.
     """
     if (propagation_op is None) != (qubit_order is None):
         raise ValueError(
-            "propagation_op and qubit_order must either both be supplied or both be omitted."
+            "propagation_op and qubit_order must either both be supplied "
+            "or both be omitted."
         )
 
     new_dist: dict[int, float] = {}
@@ -170,7 +179,9 @@ def aggregate_z_error_bitmasks(
         for mask2, coeff2 in dist2.items():
             combined_mask = propagated_mask ^ mask2
             combined_coeff = coeff1 * coeff2
-            new_dist[combined_mask] = new_dist.get(combined_mask, 0.0) + combined_coeff
+            new_dist[combined_mask] = (
+                new_dist.get(combined_mask, 0.0) + combined_coeff
+            )
 
     # Remove coefficients numerically indistinguishable from zero.
     return {
@@ -206,7 +217,8 @@ def build_block_operation_representation(
     aggregated_dist: Dict[int, float],
     qubit_order: Sequence[cirq.Qid],
 ) -> OperationRepresentation:
-    """Convert an aggregated bitmask distribution into an OperationRepresentation."""
+    """Convert an aggregated bitmask distribution into an
+    OperationRepresentation."""
     noisy_ops = []
     coeffs = []
 
@@ -227,7 +239,8 @@ def extract_z_mask_coefficients(
     rep: OperationRepresentation,
     qubits: Sequence[cirq.Qid],
 ) -> Dict[int, float]:
-    """Extract a bitmask-to-coefficient mapping from an OperationRepresentation."""
+    """Extract a bitmask-to-coefficient mapping from an
+    OperationRepresentation."""
     dist: Dict[int, float] = {}
     ideal_circuit = cirq.Circuit(rep.ideal)
 
@@ -299,15 +312,18 @@ def execute_with_block_pec(
         ops = list(sub_circ.all_operations())
 
         if len(ops) > 1 and all(is_z_compatible(op) for op in ops):
-            # Each local representation describes a local error after its ideal
-            # operation. Before combining with the next layer, the accumulated
-            # error is conjugated by that next ideal operation.
+            # Each local representation describes a local error after its
+            # ideal operation. Before combining with the next layer, the
+            # accumulated error is conjugated by that next ideal operation.
             layer_dists = []
             for op in ops:
-                rep = _find_representation(cirq.Circuit(op), representations)
+                rep = _find_representation(
+                    cirq.Circuit(op), representations
+                )
                 if rep is None:
                     raise ValueError(
-                        f"No OperationRepresentation provided for operation: {op}"
+                        "No OperationRepresentation provided for "
+                        f"operation: {op}"
                     )
 
                 dist = extract_z_mask_coefficients(rep, qubits)
@@ -333,14 +349,19 @@ def execute_with_block_pec(
             rep = _find_representation(sub_circ, representations)
             if rep is None:
                 raise ValueError(
-                    f"No OperationRepresentation found for sub-circuit:\n{sub_circ}"
+                    "No OperationRepresentation found for "
+                    f"sub-circuit:\n{sub_circ}"
                 )
             segment_representations.append(rep)
 
     # Use one independent sample sequence for each block, then compose the
     # corresponding sampled segments. This matches sample_sequence's API:
     # each call receives exactly one representation matching its ideal block.
-    rng = np.random.RandomState(random_state) if isinstance(random_state, int) else random_state
+    rng = (
+        np.random.RandomState(random_state)
+        if isinstance(random_state, int)
+        else random_state
+    )
 
     sampled_segment_circuits: List[List[cirq.Circuit]] = []
     segment_signs: List[NDArray[np.int_]] = []
@@ -369,8 +390,12 @@ def execute_with_block_pec(
         sample_sign = 1.0
 
         for segment_index in range(len(sub_circuits)):
-            composed_circuit += sampled_segment_circuits[segment_index][sample_index]
-            sample_sign *= float(segment_signs[segment_index][sample_index])
+            composed_circuit += sampled_segment_circuits[segment_index][
+                sample_index
+            ]
+            sample_sign *= float(
+                segment_signs[segment_index][sample_index]
+            )
 
         total_signs.append(sample_sign)
         results.append(executor(composed_circuit))

@@ -1,12 +1,12 @@
-"""Tests for Pauli-Z Block-PEC extraction, propagation, aggregation, and sampling."""
+"""Tests for Pauli-Z Block-PEC extraction, propagation, aggregation,
+and sampling.
+"""
 
-from typing import Dict, Sequence
 
 import cirq
 import numpy as np
 
 from mitiq.pec import NoisyOperation, OperationRepresentation
-from mitiq.pec.sampling import sample_sequence
 from mitiq.pec.block_pec import (
     aggregate_z_error_bitmasks,
     build_block_operation_representation,
@@ -17,6 +17,7 @@ from mitiq.pec.block_pec import (
     partition_circuit,
     propagate_z_mask_through_op,
 )
+from mitiq.pec.sampling import sample_sequence
 
 
 def test_step1_bitmask_extraction():
@@ -53,9 +54,7 @@ def test_step1_bitmask_extraction():
     assert np.isclose(parsed_map[0b11], 0.02)
 
     # Also verify the production extractor directly.
-    assert extract_z_mask_from_circuit(
-        ideal_circuit, noisy_01, qubits
-    ) == 0b01
+    assert extract_z_mask_from_circuit(ideal_circuit, noisy_01, qubits) == 0b01
 
 
 def test_extract_z_mask_rejects_non_z_error():
@@ -153,13 +152,15 @@ def test_cnot_z_error_propagation_preserves_existing_control_z():
 
 
 def test_cnot_propagation_in_aggregation():
-    """The DP aggregation must propagate earlier errors through the next gate."""
+    """The DP aggregation must propagate earlier errors through the next
+    gate.
+    """
     q0, q1 = cirq.LineQubit.range(2)
     qubits = [q0, q1]
     cnot_op = cirq.CNOT(q0, q1)
 
     previous = {0b01: 1.0}  # Z on target.
-    current = {0b00: 1.0}   # No local error.
+    current = {0b00: 1.0}  # No local error.
 
     result = aggregate_z_error_bitmasks(
         previous,
@@ -246,7 +247,9 @@ def test_block_pec_sampling_overhead_reduction():
     dist1 = {0: 1.0, 1: 0.4, 2: -0.3}
     dist2 = {0: 1.0, 1: -0.4, 2: 0.3}
 
-    gamma_std = compute_sampling_overhead(dist1) * compute_sampling_overhead(dist2)
+    gamma_std = compute_sampling_overhead(dist1) * compute_sampling_overhead(
+        dist2
+    )
     aggregated_dist = aggregate_z_error_bitmasks(dist1, dist2)
 
     # The two mask-1 paths cancel exactly.
