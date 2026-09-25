@@ -1,9 +1,10 @@
 """Block-PEC implementation for Pauli-Z error aggregation via dynamic programming."""
 
-from typing import Callable, Dict, Sequence
+from typing import Any, Callable, Dict, Sequence, List, Union, cast
 
 import cirq
 import numpy as np
+from numpy.typing import NDArray
 
 from mitiq.pec.sampling import sample_sequence
 from mitiq.pec.types import NoisyOperation, OperationRepresentation
@@ -16,7 +17,7 @@ Z_COMPATIBLE_GATES = (
 )
 
 
-def _unitary_on_qubits(circuit: cirq.Circuit, qubit_order: Sequence[cirq.Qid]) -> np.ndarray:
+def _unitary_on_qubits(circuit: cirq.Circuit, qubit_order: Sequence[cirq.Qid]) -> NDArray[Any]:
     """Returns a circuit unitary using the supplied qubit ordering."""
     return circuit.unitary(qubits_that_should_be_present=qubit_order)
 
@@ -284,7 +285,7 @@ def execute_with_block_pec(
     executor: Callable[[cirq.Circuit], float],
     representations: Sequence[OperationRepresentation],
     num_samples: int = 100,
-    random_state: int | np.random.RandomState | None = None,
+    random_state: Union[int, np.random.RandomState, None] = None,
 ) -> float:
     """Execute a circuit using Block-PEC segment composition and sampling."""
     if num_samples <= 0:
@@ -292,7 +293,7 @@ def execute_with_block_pec(
 
     qubits = sorted(circuit.all_qubits())
     sub_circuits = partition_circuit(circuit)
-    segment_representations: list[OperationRepresentation] = []
+    segment_representations: List[OperationRepresentation] = []
 
     for sub_circ in sub_circuits:
         ops = list(sub_circ.all_operations())
@@ -341,8 +342,8 @@ def execute_with_block_pec(
     # each call receives exactly one representation matching its ideal block.
     rng = np.random.RandomState(random_state) if isinstance(random_state, int) else random_state
 
-    sampled_segment_circuits: list[list[cirq.Circuit]] = []
-    segment_signs: list[np.ndarray] = []
+    sampled_segment_circuits: List[List[cirq.Circuit]] = []
+    segment_signs: List[NDArray[np.int_]] = []
     gamma_total = 1.0
 
     for sub_circ, rep in zip(sub_circuits, segment_representations):
@@ -352,8 +353,12 @@ def execute_with_block_pec(
             num_samples=num_samples,
             random_state=rng,
         )
-        sampled_segment_circuits.append(sampled)
-        segment_signs.append(signs)
+        # Explicitly cast sampled elements from QPROGRAM to cirq.Circuit
+        typed_sampled = [cast(cirq.Circuit, s) for s in sampled]
+        sampled_segment_circuits.append(typed_sampled)
+
+        # Convert sign sequence explicitly to an NDArray[np.int_]
+        segment_signs.append(np.array(signs, dtype=int))
         gamma_total *= norm
 
     results = []
@@ -365,7 +370,7 @@ def execute_with_block_pec(
 
         for segment_index in range(len(sub_circuits)):
             composed_circuit += sampled_segment_circuits[segment_index][sample_index]
-            sample_sign *= segment_signs[segment_index][sample_index]
+            sample_sign *= float(segment_signs[segment_index][sample_index])
 
         total_signs.append(sample_sign)
         results.append(executor(composed_circuit))
