@@ -2,7 +2,6 @@
 and sampling.
 """
 
-
 import cirq
 import numpy as np
 

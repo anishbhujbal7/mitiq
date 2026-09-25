@@ -317,9 +317,7 @@ def execute_with_block_pec(
             # accumulated error is conjugated by that next ideal operation.
             layer_dists = []
             for op in ops:
-                rep = _find_representation(
-                    cirq.Circuit(op), representations
-                )
+                rep = _find_representation(cirq.Circuit(op), representations)
                 if rep is None:
                     raise ValueError(
                         "No OperationRepresentation provided for "
@@ -393,9 +391,7 @@ def execute_with_block_pec(
             composed_circuit += sampled_segment_circuits[segment_index][
                 sample_index
             ]
-            sample_sign *= float(
-                segment_signs[segment_index][sample_index]
-            )
+            sample_sign *= float(segment_signs[segment_index][sample_index])
 
         total_signs.append(sample_sign)
         results.append(executor(composed_circuit))
